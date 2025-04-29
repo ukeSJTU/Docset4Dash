@@ -1,0 +1,93 @@
+name: Convert NS-3 Documentation to Docset
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install xmlstarlet
+          run: |
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xmlstarlet
+
+      - name: Get latest ns-3-dev release tag from RSS Feed
+        id: ns3_release
+        run: |
+          FEED_URL="https://gitlab.com/nsnam/ns-3-dev/-/releases.atom"
+          echo "Fetching feed: ${FEED_URL}"
+          LATEST_TAG=$(curl -sSf "${FEED_URL}" | xmlstarlet sel -N atom="http://www.w3.org/2005/Atom" -t -v "/atom:feed/atom:entry[1]/atom:title" -)
+          if [[ -z "${LATEST_TAG}" ]]; then
+             echo "Error: Could not fetch or parse latest tag from RSS feed."
+             exit 1
+          fi
+          echo "Latest ns-3-dev tag found via RSS: ${LATEST_TAG}"
+          echo "tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          # 提取版本号（去掉 "ns-" 前缀）
+          VERSION=${LATEST_TAG#ns-}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+      
+      - name: Check if version exists
+        id: version_check
+        run: |
+          if [ -f "versions/${LATEST_TAG}.txt" ]; then
+            echo "Version ${LATEST_TAG} already exists, skipping..."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone NS-3 repository
+        run: |
+          git clone --depth 1 https://gitlab.com/nsnam/ns-3-dev.git
+          cd ns-3-dev
+          ls -la
+          # 获取最新的tag版本号
+          NS3_VERSION=$(git describe --tags --abbrev=0)
+          echo "NS3_VERSION=${NS3_VERSION#ns-}" >> $GITHUB_ENV
+
+      - name: Install dependencies for ns-3 build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen
+
+      - name: Configure doxygen.conf
+        working-directory: ns-3-dev
+        run: |
+          # 关闭所有图形生成相关选项
+          sed -i 's/HAVE_DOT               = YES/HAVE_DOT               = NO/' doc/doxygen.conf
+          sed -i 's/HIDE_UNDOC_RELATIONS   = NO/HIDE_UNDOC_RELATIONS   = YES/' doc/doxygen.conf
+          
+          # 添加 docset 所需的配置
+          echo "GENERATE_DOCSET   = YES" >> doc/doxygen.conf
+          echo "DISABLE_INDEX     = YES" >> doc/doxygen.conf
+          echo "SEARCHENGINE      = NO" >> doc/doxygen.conf
+          echo "GENERATE_TREEVIEW = NO" >> doc/doxygen.conf
+
+      - name: Build NS-3 doxygen
+        working-directory: ns-3-dev
+        run: |
+          ./ns3 docs doxygen-no-build
+
+      - name: Install doxygen2docset
+        run: |
+          git clone https://github.com/chinmaygarde/doxygen2docset.git
+          cd doxygen2docset
+          git submodule update --init --recursive
+          cmake -B build
+          cmake --build build
+
+      - name: Convert to docset
+        run: |
+          cd doxygen2docset
+          mkdir -p output
+          cp resources/Info.plist .
+          ./build/source/doxygen2docset --doxygen ns-3-dev/doc/html --docset output
+
