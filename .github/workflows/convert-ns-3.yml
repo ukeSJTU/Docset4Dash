@@ -90,7 +90,7 @@ jobs:
             - name: Convert to docset
               working-directory: doxygen2docset
               run: |
-                  ./build/source/doxygen2docset --doxygen ../ns-3-dev/doc/html
+                  ./build/source/doxygen2docset --doxygen ../ns-3-dev/doc/html --docset ./
 
             - name: Mark version as processed
               if: steps.version_check.outputs.skip != 'true'
