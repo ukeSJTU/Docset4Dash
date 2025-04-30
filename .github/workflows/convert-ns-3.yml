@@ -49,9 +49,6 @@ jobs:
                   git clone --depth 1 https://gitlab.com/nsnam/ns-3-dev.git
                   cd ns-3-dev
                   ls -la
-                  # 获取最新的tag版本号
-                  NS3_VERSION=$(git describe --tags --abbrev=0)
-                  echo "NS3_VERSION=${NS3_VERSION#ns-}" >> $GITHUB_ENV
 
             - name: Install dependencies for ns-3 build
               run: |
