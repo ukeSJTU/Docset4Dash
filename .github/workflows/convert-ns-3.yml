@@ -71,6 +71,7 @@ jobs:
             - name: Build NS-3 doxygen
               working-directory: ns-3-dev
               run: |
+                  ./ns3 configure
                   ./ns3 docs doxygen-no-build
 
             - name: Install doxygen2docset
