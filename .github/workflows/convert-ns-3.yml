@@ -53,7 +53,7 @@ jobs:
             - name: Install dependencies for ns-3 build
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y doxygen
+                  sudo apt-get install -y doxygen graphviz dia
 
             - name: Configure doxygen.conf
               working-directory: ns-3-dev
@@ -75,9 +75,9 @@ jobs:
                   ./ns3 docs doxygen-no-build
 
             - name: Install doxygen2docset
-              working-directory: doxygen2docset
               run: |
                   git clone https://github.com/chinmaygarde/doxygen2docset.git
+                  cd doxygen2docset
                   git submodule update --init --recursive
                   cmake -B build
                   cmake --build build
